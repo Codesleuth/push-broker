@@ -1,7 +1,7 @@
-var express = require('express');
-var socketio = require('socket.io');
-var morgan = require('morgan');
-var bodyParser = require('body-parser');
+var express = require('express'),
+    socketio = require('socket.io'),
+    morgan = require('morgan'),
+    bodyParser = require('body-parser');
 
 function handler(io, req, res) {
   var payload = req.body.payload;
