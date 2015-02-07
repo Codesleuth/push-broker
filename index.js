@@ -15,7 +15,7 @@ function handler(io, req, res) {
 
 var app = express();
 app.use(morgan('combined'));
-app.use(bodyParser.urlencoded({ extended: true }));
+app.use(bodyParser.urlencoded({ extended: true, parameterLimit: 1 }));
 
 var server = require('http').Server(app);
 var io = socketio(server);
