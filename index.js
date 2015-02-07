@@ -1,12 +1,14 @@
 var express = require('express'),
     socketio = require('socket.io'),
     morgan = require('morgan'),
-    bodyParser = require('body-parser');
+    bodyParser = require('body-parser'),
+    http = require('http'),
+    log = require('./logger');
 
 function handler(io, req, res) {
   var payload = req.body.payload;
   
-  console.log('got push payload: ', payload);
+  log.info('Received push payload: ', payload);
   res.writeHead(200, { 'Content-Type': 'text/plain' });
   res.end();
 
@@ -14,16 +16,28 @@ function handler(io, req, res) {
 }
 
 var app = express();
-app.use(morgan('combined'));
-app.use(bodyParser.urlencoded({ extended: true, parameterLimit: 1 }));
+app.use(log.middleware());
 
-var server = require('http').Server(app);
+var urlEncodedParser = bodyParser.urlencoded({ extended: true, parameterLimit: 1 });
+
+var server = http.Server(app);
 var io = socketio(server);
 
-app.post('/payload', handler.bind(app, io));
-
-io.on('connection', function (socket) {
-  console.log('connection event');
+app.post('/payload', urlEncodedParser, handler.bind(app, io));
+app.use(function (req, res) {
+  res.writeHead(404, { 'Content-Type': 'text/plain' });
+  res.end();
 });
 
-server.listen(process.env.PORT || 3000);
+io.on('connection', function (socket) {
+  var clientAddress = socket.request.connection._peername.address;
+  var clientPort = socket.request.connection._peername.port;
+  log.info('Socket.IO connection received from %s:%d', clientAddress, clientPort);
+});
+
+var port = process.env.PORT || 3000;
+var ip = process.env.IP || null;
+
+server.listen(port, ip, function () {
+  log.info('Server ready at %s:%d', ip || '0.0.0.0', port);
+});
