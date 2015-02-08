@@ -1,5 +1,5 @@
-var log = require('./logger'),
-    api = require('./api');
+var log = require('./lib/logger'),
+    api = require('./lib/api');
 
 var server = api();
 
