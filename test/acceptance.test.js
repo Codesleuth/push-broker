@@ -114,7 +114,7 @@ describe('Acceptance Tests', function () {
           headers: {
             'X-Github-Event': 'push',
             'X-Github-Delivery': '72d3162e-cc78-11e3-81ab-4c9367dc0958',
-            'X-Hub-Signature': 'fead5cdf117469cb973f9ac60542ef3a51686c84' //test
+            'X-Hub-Signature': 'sha1=fead5cdf117469cb973f9ac60542ef3a51686c84' //test
           }
         }, function (err, res, body) {
           response = err || res.statusCode;
