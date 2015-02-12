@@ -143,12 +143,15 @@ describe('Acceptance Tests', function () {
 
   describe('PushEvent with incorrect HMAC Signature', function () {
 
+    var expectedPayload;
     var response;
 
     before(function (done) {
+      expectedPayload = JSON.parse(fs.readFileSync(path.join(__dirname, 'assets', 'PushEvent.json')));
+      
       request.post({
         url: urlFull,
-        body: { some: 'payload' },
+        body: expectedPayload,
         json: true,
         headers: {
           'X-Github-Event': 'push',
