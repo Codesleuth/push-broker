@@ -6,23 +6,38 @@ var assert = require('assert'),
     url = require('url'),
     path = require('path');
 
-describe('PushEvent', function () {
+describe('Acceptance Tests', function () {
 
+  var urlBase;
+  var urlPath;
+  var urlFull;
   var server;
-  var socket;
-  var expectedPayload;
-
-  var response;
-  var actualPayload;
 
   before(function (done) {
-    var urlBase = 'http://127.0.0.1:3000';
-    var urlPath = '/webhook';
-    expectedPayload = JSON.parse(fs.readFileSync(path.join(__dirname, 'assets', 'PushEvent.json')));
+    urlBase = 'http://127.0.0.1:3000';
+    urlPath = '/webhook';
+    urlFull = url.resolve(urlBase, urlPath);
 
     server = api();
-    server.listen(process.env.PORT || 3000, function () {
-      socket = sioClient(urlBase);
+    server.listen(process.env.PORT || 3000, done);
+  });
+
+  after(function (done) {
+    server.close(done);
+  });
+
+  describe('PushEvent', function () {
+
+    var socket;
+    var expectedPayload;
+
+    var response;
+    var actualPayload;
+
+    before(function (done) {
+      expectedPayload = JSON.parse(fs.readFileSync(path.join(__dirname, 'assets', 'PushEvent.json')));
+
+      socket = sioClient(urlBase, { forceNew: true });
 
       var payloadReceived, responseReceived;
       
@@ -36,7 +51,7 @@ describe('PushEvent', function () {
 
       socket.on('connect', function (socket) {
         request.post({
-          url: url.resolve(urlBase, urlPath),
+          url: urlFull,
           body: expectedPayload,
           json: true,
           headers: {
@@ -51,38 +66,115 @@ describe('PushEvent', function () {
             done();
         });
       });
+
+    });
+
+    it('should respond with 200 OK', function () {
+      assert.strictEqual(response, 200);
+    });
+
+    it('should receive the payload from the connected socket', function () {
+      assert.deepEqual(actualPayload, expectedPayload);
+    });
+
+    after(function () {
+      socket.disconnect();
     });
 
   });
 
-  it('should respond with 200 OK', function () {
-    assert.strictEqual(response, 200);
+  describe('PushEvent with HMAC Signature', function () {
+
+    var socket;
+    var expectedPayload;
+
+    var response;
+    var actualPayload;
+
+    before(function (done) {
+      expectedPayload = JSON.parse(fs.readFileSync(path.join(__dirname, 'assets', 'PushEvent.json')));
+
+      socket = sioClient(urlBase, { forceNew: true });
+
+      var payloadReceived, responseReceived;
+      
+      socket.on('PushEvent', function (data) {
+        actualPayload = data;
+        payloadReceived = true;
+
+        if (responseReceived)
+          done();
+      });
+
+      socket.on('connect', function (socket) {
+        request.post({
+          url: urlFull,
+          body: expectedPayload,
+          json: true,
+          headers: {
+            'X-Github-Event': 'push',
+            'X-Github-Delivery': '72d3162e-cc78-11e3-81ab-4c9367dc0958',
+            'X-Hub-Signature': 'fead5cdf117469cb973f9ac60542ef3a51686c84' //test
+          }
+        }, function (err, res, body) {
+          response = err || res.statusCode;
+          responseReceived = true;
+
+          if (payloadReceived)
+            done();
+        });
+      });
+
+    });
+
+    it('should respond with 200 OK', function () {
+      assert.strictEqual(response, 200);
+    });
+
+    it('should receive the payload from the connected socket', function () {
+      assert.deepEqual(actualPayload, expectedPayload);
+    });
+
+    after(function () {
+      socket.disconnect();
+    });
+
   });
 
-  it('should receive the payload from the connected socket', function () {
-    assert.deepEqual(actualPayload, expectedPayload);
-  });
+  describe('PushEvent with incorrect HMAC Signature', function () {
 
-  after(function (done) {
-    socket.disconnect();
-    server.close(done);
-  });
+    var response;
 
-});
-
-describe('UnknownEvent', function () {
-
-  var server;
-  var response;
-
-  before(function (done) {
-    var urlBase = 'http://127.0.0.1:3000';
-    var urlPath = '/webhook';
-
-    server = api();
-    server.listen(process.env.PORT || 3000, function () {
+    before(function (done) {
       request.post({
-        url: url.resolve(urlBase, urlPath),
+        url: urlFull,
+        body: { some: 'payload' },
+        json: true,
+        headers: {
+          'X-Github-Event': 'push',
+          'X-Github-Delivery': '72d3162e-cc78-11e3-81ab-4c9367dc0958',
+          'X-Hub-Signature': 'not valid'
+        }
+      }, function (err, res, body) {
+        response = err || res.statusCode;
+        done();
+      });
+
+    });
+
+    it('should respond with 403 Forbidden', function () {
+      assert.strictEqual(response, 403);
+    });
+
+  });
+
+  describe('UnknownEvent', function () {
+
+    var response;
+
+    before(function (done) {
+      request.post({
+        url: urlFull,
         body: { some: 'payload' },
         json: true,
         headers: {
@@ -93,16 +185,13 @@ describe('UnknownEvent', function () {
         response = err || res.statusCode;
         done();
       });
+
     });
 
-  });
+    it('should respond with 400 Bad Request', function () {
+      assert.strictEqual(response, 400);
+    });
 
-  it('should respond with 400 Bad Request', function () {
-    assert.strictEqual(response, 400);
-  });
-
-  after(function (done) {
-    server.close(done);
   });
 
 });
