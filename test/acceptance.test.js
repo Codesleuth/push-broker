@@ -4,7 +4,9 @@ var assert = require('assert'),
     request = require('request'),
     fs = require('fs'),
     url = require('url'),
-    path = require('path');
+    path = require('path'),
+    random = require('./random'),
+    crypto = require('crypto');
 
 describe('Acceptance Tests', function () {
 
@@ -26,7 +28,7 @@ describe('Acceptance Tests', function () {
     server.close(done);
   });
 
-  describe('PushEvent', function () {
+  describe('PushEvent with missing HMAC signature', function () {
 
     var socket;
     var expectedPayload;
@@ -35,50 +37,25 @@ describe('Acceptance Tests', function () {
     var actualPayload;
 
     before(function (done) {
-      expectedPayload = JSON.parse(fs.readFileSync(path.join(__dirname, 'assets', 'PushEvent.json')));
+      expectedPayload = fs.readFileSync(path.join(__dirname, 'assets', 'PushEvent.json'));
 
-      socket = sioClient(urlBase, { forceNew: true });
-
-      var payloadReceived, responseReceived;
-      
-      socket.on('PushEvent', function (data) {
-        actualPayload = data;
-        payloadReceived = true;
-
-        if (responseReceived)
-          done();
-      });
-
-      socket.on('connect', function (socket) {
-        request.post({
-          url: urlFull,
-          body: expectedPayload,
-          json: true,
-          headers: {
-            'X-Github-Event': 'push',
-            'X-Github-Delivery': '72d3162e-cc78-11e3-81ab-4c9367dc0958'
-          }
-        }, function (err, res, body) {
-          response = err || res.statusCode;
-          responseReceived = true;
-
-          if (payloadReceived)
-            done();
-        });
+      request.post({
+        url: urlFull,
+        body: expectedPayload,
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Github-Event': 'push',
+          'X-Github-Delivery': '72d3162e-cc78-11e3-81ab-4c9367dc0958'
+        }
+      }, function (err, res, body) {
+        response = err || res.statusCode;
+        done();
       });
 
     });
 
-    it('should respond with 200 OK', function () {
-      assert.strictEqual(response, 200);
-    });
-
-    it('should receive the payload from the connected socket', function () {
-      assert.deepEqual(actualPayload, expectedPayload);
-    });
-
-    after(function () {
-      socket.disconnect();
+    it('should respond with 400 Bad Request', function () {
+      assert.strictEqual(response, 400);
     });
 
   });
@@ -92,7 +69,13 @@ describe('Acceptance Tests', function () {
     var actualPayload;
 
     before(function (done) {
-      expectedPayload = JSON.parse(fs.readFileSync(path.join(__dirname, 'assets', 'PushEvent.json')));
+      expectedPayload = fs.readFileSync(path.join(__dirname, 'assets', 'PushEvent.json'));
+      var secret = random.string();
+
+      var hmac = crypto.createHmac('sha1', secret);
+      var hash = hmac.update(expectedPayload).digest('hex');
+
+      console.log('sha1=%s', hash);
 
       socket = sioClient(urlBase, { forceNew: true });
 
@@ -106,22 +89,24 @@ describe('Acceptance Tests', function () {
           done();
       });
 
-      socket.on('connect', function (socket) {
-        request.post({
-          url: urlFull,
-          body: expectedPayload,
-          json: true,
-          headers: {
-            'X-Github-Event': 'push',
-            'X-Github-Delivery': '72d3162e-cc78-11e3-81ab-4c9367dc0958',
-            'X-Hub-Signature': 'sha1=fead5cdf117469cb973f9ac60542ef3a51686c84' //test
-          }
-        }, function (err, res, body) {
-          response = err || res.statusCode;
-          responseReceived = true;
+      socket.on('connect', function () {
+        socket.emit('secret', secret, function () {
+          request.post({
+            url: urlFull,
+            body: expectedPayload,
+            headers: {
+              'Content-Type': 'application/json',
+              'X-Github-Event': 'push',
+              'X-Github-Delivery': '72d3162e-cc78-11e3-81ab-4c9367dc0958',
+              'X-Hub-Signature': 'sha1=' + hash
+            }
+          }, function (err, res, body) {
+            response = err || res.statusCode;
+            responseReceived = true;
 
-          if (payloadReceived)
-            done();
+            if (payloadReceived)
+              done();
+          });
         });
       });
 
@@ -132,7 +117,7 @@ describe('Acceptance Tests', function () {
     });
 
     it('should receive the payload from the connected socket', function () {
-      assert.deepEqual(actualPayload, expectedPayload);
+      assert.deepEqual(actualPayload, JSON.parse(expectedPayload));
     });
 
     after(function () {
@@ -147,16 +132,16 @@ describe('Acceptance Tests', function () {
     var response;
 
     before(function (done) {
-      expectedPayload = JSON.parse(fs.readFileSync(path.join(__dirname, 'assets', 'PushEvent.json')));
+      expectedPayload = fs.readFileSync(path.join(__dirname, 'assets', 'PushEvent.json'));
       
       request.post({
         url: urlFull,
         body: expectedPayload,
-        json: true,
         headers: {
+          'Content-Type': 'application/json',
           'X-Github-Event': 'push',
           'X-Github-Delivery': '72d3162e-cc78-11e3-81ab-4c9367dc0958',
-          'X-Hub-Signature': 'not valid'
+          'X-Hub-Signature': 'sha1=invalid'
         }
       }, function (err, res, body) {
         response = err || res.statusCode;
