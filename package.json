@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
-    "test": "mocha --slow 500ms --bail --timeout 2000 --check-leaks"
+    "test": "mocha --slow 500ms --timeout 2000 --check-leaks"
   },
   "repository": {
     "type": "git",

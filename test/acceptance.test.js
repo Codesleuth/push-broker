@@ -6,7 +6,8 @@ var assert = require('assert'),
     url = require('url'),
     path = require('path'),
     random = require('./random'),
-    crypto = require('crypto');
+    crypto = require('crypto'),
+    log = require('../lib/logger');
 
 function UUID() {
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
@@ -15,7 +16,7 @@ function UUID() {
   });
 }
 
-function UAID() {
+function HookshotID() {
   return 'xxxxxxx'.replace(/[xy]/g, function (c) {
     var r = Math.random()*16|0, v = c == 'x' ? r : (r&0x3|0x8);
     return v.toString(16);
@@ -27,6 +28,8 @@ describe('Acceptance Tests', function () {
   var urlBase;
   var urlPath;
   var urlFull;
+  var examplePingEvent;
+  var examplePushEvent;
   var server;
 
   before(function (done) {
@@ -34,43 +37,173 @@ describe('Acceptance Tests', function () {
     urlPath = '/webhook';
     urlFull = url.resolve(urlBase, urlPath);
 
+    examplePingEvent = fs.readFileSync(path.join(__dirname, 'assets', 'PingEvent.json'));
+    examplePushEvent = fs.readFileSync(path.join(__dirname, 'assets', 'PushEvent.json'));
+
+    log.console.disable();
+
     server = api();
     server.listen(process.env.PORT || 3000, done);
   });
 
   after(function (done) {
-    server.close(done);
+    server.close(function () {
+      log.console.enable();
+      done();
+    });
   });
 
-  describe('PushEvent with missing HMAC signature', function () {
+  describe('PingEvent with HMAC signature', function () {
 
     var socket;
-    var expectedPayload;
-
     var response;
-    var pushEventData;
+    var responseBody;
 
     before(function (done) {
-      expectedPayload = fs.readFileSync(path.join(__dirname, 'assets', 'PushEvent.json'));
+      var secret = random.string();
 
+      var hmac = crypto.createHmac('sha1', secret);
+      var hash = hmac.update(examplePingEvent).digest('hex');
+
+      socket = sioClient(urlBase, { forceNew: true });
+
+      socket.on('connect', function () {
+        socket.emit('secret', secret, function () {
+          request.post({
+            url: urlFull,
+            body: examplePingEvent,
+            headers: {
+              'User-Agent': 'GitHub-Hookshot/' + HookshotID(),
+              'Content-Type': 'application/json',
+              'X-Github-Event': 'ping',
+              'X-Github-Delivery': UUID(),
+              'X-Hub-Signature': 'sha1=' + hash
+            }
+          }, function (err, res, body) {
+            if (err) throw err;
+            response = res;
+            responseBody = body;
+            done();
+          });
+        });
+      });
+    });
+
+    it('should respond with 200 OK', function () {
+      assert.strictEqual(response.statusCode, 200);
+    });
+
+    it('should respond with an empty body', function () {
+      assert.strictEqual(responseBody, '');
+    });
+
+    after(function () {
+      socket.disconnect();
+    });
+
+  });
+
+  describe('PingEvent without HMAC signature', function () {
+
+    var socket;
+    var response;
+    var responseBody;
+
+    before(function (done) {
       request.post({
         url: urlFull,
-        body: expectedPayload,
+        body: examplePingEvent,
         headers: {
-          'User-Agent': 'GitHub-Hookshot/044aadd',
+          'User-Agent': 'GitHub-Hookshot/' + HookshotID(),
           'Content-Type': 'application/json',
-          'X-Github-Event': 'push',
+          'X-Github-Event': 'ping',
           'X-Github-Delivery': UUID()
         }
       }, function (err, res, body) {
-        response = err || res.statusCode;
+        if (err) throw err;
+        response = res;
+        responseBody = body;
         done();
       });
 
     });
 
     it('should respond with 400 Bad Request', function () {
-      assert.strictEqual(response, 400);
+      assert.strictEqual(response.statusCode, 400);
+    });
+
+    it('should respond with the expected message', function () {
+      assert.strictEqual(responseBody, 'A HMAC signature is required - specify a secrey key');
+    });
+
+  });
+
+  describe('PingEvent without body', function () {
+
+    var socket;
+    var response;
+    var responseBody;
+
+    before(function (done) {
+      request.post({
+        url: urlFull,
+        headers: {
+          'User-Agent': 'GitHub-Hookshot/' + HookshotID(),
+          'Content-Type': 'application/json',
+          'X-Github-Event': 'ping',
+          'X-Github-Delivery': UUID()
+        }
+      }, function (err, res, body) {
+        if (err) throw err;
+        response = res;
+        responseBody = body;
+        done();
+      });
+
+    });
+
+    it('should respond with 400 Bad Request', function () {
+      assert.strictEqual(response.statusCode, 400);
+    });
+
+    it('should respond with the expected message', function () {
+      assert.strictEqual(responseBody, 'Payload is missing');
+    });
+
+  });
+
+  describe('PingEvent with no listening clients', function () {
+
+    var socket;
+    var response;
+    var responseBody;
+
+    before(function (done) {
+      request.post({
+        url: urlFull,
+        body: examplePingEvent,
+        headers: {
+          'User-Agent': 'GitHub-Hookshot/' + HookshotID(),
+          'Content-Type': 'application/json',
+          'X-Github-Event': 'ping',
+          'X-Github-Delivery': UUID(),
+          'X-Hub-Signature': 'sha1=unknown'
+        }
+      }, function (err, res, body) {
+        if (err) throw err;
+        response = res;
+        responseBody = body;
+        done();
+      });
+
+    });
+
+    it('should respond with 403 Forbidden', function () {
+      assert.strictEqual(response.statusCode, 403);
+    });
+
+    it('should respond with the expected message', function () {
+      assert.strictEqual(responseBody, 'Unable to find any listening clients for the specified signature');
     });
 
   });
@@ -78,7 +211,6 @@ describe('Acceptance Tests', function () {
   describe('PushEvent with HMAC Signature', function () {
 
     var socket;
-    var expectedPayload;
     var expectedDeliveryId;
     var expectedUserAgent;
 
@@ -86,14 +218,13 @@ describe('Acceptance Tests', function () {
     var pushEventData;
 
     before(function (done) {
-      expectedPayload = fs.readFileSync(path.join(__dirname, 'assets', 'PushEvent.json'));
       expectedDeliveryId = UUID();
-      expectedUserAgent = 'GitHub-Hookshot/' + UAID();
+      expectedUserAgent = 'GitHub-Hookshot/' + HookshotID();
 
       var secret = random.string();
 
       var hmac = crypto.createHmac('sha1', secret);
-      var hash = hmac.update(expectedPayload).digest('hex');
+      var hash = hmac.update(examplePushEvent).digest('hex');
 
       socket = sioClient(urlBase, { forceNew: true });
 
@@ -109,7 +240,7 @@ describe('Acceptance Tests', function () {
         socket.emit('secret', secret, function () {
           request.post({
             url: urlFull,
-            body: expectedPayload,
+            body: examplePushEvent,
             headers: {
               'User-Agent': expectedUserAgent,
               'Content-Type': 'application/json',
@@ -118,7 +249,8 @@ describe('Acceptance Tests', function () {
               'X-Hub-Signature': 'sha1=' + hash
             }
           }, function (err, res, body) {
-            response = err || res;
+            if (err) throw err;
+            response = res;
 
             if (!--events) done();
           });
@@ -140,7 +272,7 @@ describe('Acceptance Tests', function () {
     });
 
     it('should receive the payload with the expected payload body', function () {
-      assert.deepEqual(pushEventData.body, JSON.parse(expectedPayload));
+      assert.deepEqual(pushEventData.body, JSON.parse(examplePushEvent));
     });
 
     after(function () {
@@ -149,17 +281,86 @@ describe('Acceptance Tests', function () {
 
   });
 
-  describe('PushEvent with incorrect HMAC Signature', function () {
+  describe('PushEvent without HMAC signature', function () {
 
-    var expectedPayload;
+    var socket;
+
     var response;
+    var responseBody;
+    var pushEventData;
 
     before(function (done) {
-      expectedPayload = fs.readFileSync(path.join(__dirname, 'assets', 'PushEvent.json'));
-      
       request.post({
         url: urlFull,
-        body: expectedPayload,
+        body: examplePushEvent,
+        headers: {
+          'User-Agent': 'GitHub-Hookshot/' + HookshotID(),
+          'Content-Type': 'application/json',
+          'X-Github-Event': 'push',
+          'X-Github-Delivery': UUID()
+        }
+      }, function (err, res, body) {
+        if (err) throw err;
+        response = res;
+        responseBody = body;
+        done();
+      });
+
+    });
+
+    it('should respond with 400 Bad Request', function () {
+      assert.strictEqual(response.statusCode, 400);
+    });
+
+    it('should respond with the expected message', function () {
+      assert.strictEqual(responseBody, 'A HMAC signature is required - specify a secrey key');
+    });
+
+  });
+
+  describe('PushEvent without body', function () {
+
+    var socket;
+    var response;
+    var responseBody;
+
+    before(function (done) {
+      request.post({
+        url: urlFull,
+        headers: {
+          'User-Agent': 'GitHub-Hookshot/' + HookshotID(),
+          'Content-Type': 'application/json',
+          'X-Github-Event': 'push',
+          'X-Github-Delivery': UUID()
+        }
+      }, function (err, res, body) {
+        if (err) throw err;
+        response = res;
+        responseBody = body;
+        done();
+      });
+
+    });
+
+    it('should respond with 400 Bad Request', function () {
+      assert.strictEqual(response.statusCode, 400);
+    });
+
+    it('should respond with the expected message', function () {
+      assert.strictEqual(responseBody, 'Payload is missing');
+    });
+
+  });
+
+  describe('PushEvent with no listening clients', function () {
+
+    var response;
+    var responseBody;
+
+    before(function (done) {
+      request.post({
+        url: urlFull,
+        body: examplePushEvent,
         headers: {
           'User-Agent': 'GitHub-Hookshot/044aadd',
           'Content-Type': 'application/json',
@@ -168,14 +369,19 @@ describe('Acceptance Tests', function () {
           'X-Hub-Signature': 'sha1=invalid'
         }
       }, function (err, res, body) {
-        response = err || res.statusCode;
+        response = err || res;
+        responseBody = body;
         done();
       });
 
     });
 
     it('should respond with 403 Forbidden', function () {
-      assert.strictEqual(response, 403);
+      assert.strictEqual(response.statusCode, 403);
+    });
+
+    it('should respond with the expected message', function () {
+      assert.strictEqual(responseBody, 'Unable to find any listening clients for the specified signature');
     });
 
   });
@@ -183,6 +389,7 @@ describe('Acceptance Tests', function () {
   describe('UnknownEvent', function () {
 
     var response;
+    var responseBody;
 
     before(function (done) {
       request.post({
@@ -192,17 +399,23 @@ describe('Acceptance Tests', function () {
         headers: {
           'User-Agent': 'GitHub-Hookshot/044aadd',
           'X-Github-Event': 'unknown',
-          'X-Github-Delivery': '72d3162e-cc78-11e3-81ab-4c9367dc0958'
+          'X-Github-Delivery': '72d3162e-cc78-11e3-81ab-4c9367dc0958',
+          'X-Hub-Signature': 'sha1=invalid'
         }
       }, function (err, res, body) {
-        response = err || res.statusCode;
+        response = err || res;
+        responseBody = body;
         done();
       });
 
     });
 
     it('should respond with 400 Bad Request', function () {
-      assert.strictEqual(response, 400);
+      assert.strictEqual(response.statusCode, 400);
+    });
+
+    it('should respond with the expected message', function () {
+      assert.strictEqual(responseBody, 'Unknown event');
     });
 
   });
