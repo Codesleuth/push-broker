@@ -420,4 +420,79 @@ describe('Acceptance Tests', function () {
 
   });
 
+  describe('Bad URL', function () {
+
+    var response;
+    var responseBody;
+
+    before(function (done) {
+      request.post({
+        url: urlFull + '/asdad',
+        body: { some: 'payload' },
+        json: true,
+        headers: {
+          'User-Agent': 'GitHub-Hookshot/044aadd',
+          'X-Github-Event': 'unknown',
+          'X-Github-Delivery': '72d3162e-cc78-11e3-81ab-4c9367dc0958',
+          'X-Hub-Signature': 'sha1=invalid'
+        }
+      }, function (err, res, body) {
+        response = err || res;
+        responseBody = body;
+        done();
+      });
+
+    });
+
+    it('should respond with 404 Not Found', function () {
+      assert.strictEqual(response.statusCode, 404);
+    });
+
+    it('should respond with Not Found', function () {
+      assert.strictEqual(responseBody, 'Not Found');
+    });
+
+  });
+
+  describe('PushEvent with Invalid JSON body', function () {
+
+    var response;
+    var responseBody;
+
+    before(function (done) {
+      var jsonBody = 'clearly not valid JSON';
+
+      var secret = random.string();
+
+      var hmac = crypto.createHmac('sha1', secret);
+      var hash = hmac.update(jsonBody).digest('hex');
+
+      request.post({
+        url: urlFull,
+        body: jsonBody,
+        headers: {
+          'User-Agent': 'GitHub-Hookshot/055aadd',
+          'Content-Type': 'application/json',
+          'X-Github-Event': 'push',
+          'X-Github-Delivery': 'd1626030-d9cb-4416-a24d-ca3746514254',
+          'X-Hub-Signature': 'sha1=' + hash
+        }
+      }, function (err, res, body) {
+        response = err || res;
+        responseBody = body;
+        done();
+      });
+
+    });
+
+    it('should respond with 400 Bad Request', function () {
+      assert.strictEqual(response.statusCode, 400);
+    });
+
+    it('should respond with Invalid JSON body', function () {
+      assert.strictEqual(responseBody, 'Invalid JSON body');
+    });
+
+  });
+
 });
