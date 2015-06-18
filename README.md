@@ -1,5 +1,5 @@
-# push-proxy
-[![Build Status](https://travis-ci.org/Codesleuth/push-proxy.svg)](https://travis-ci.org/Codesleuth/push-proxy)
+# push-broker
+[![Build Status](https://travis-ci.org/Codesleuth/push-broker.svg)](https://travis-ci.org/Codesleuth/push-broker)
 
 Proxies GitHub web hooks to listening clients.
 
