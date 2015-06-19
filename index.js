@@ -9,7 +9,7 @@
     error: logPatch
   };
 
-  var defaultUrl = 'http://push-broker.herokuapp.com';
+  var defaultUrl = 'https://push-broker.herokuapp.com';
   var nextUrl = defaultUrl;
   var socket;
 
@@ -42,16 +42,33 @@
     return socket;
   }
 
-  function setSecret(secret) {
+  function setSecret(secret, callback) {
     socket.emit('secret', secret, function (data) {
-      log.info('Secret has been set.  ');
+      log.info('Secret has been set.');
+      callback(secret);
     });
   }
 
   $(function () {
 
+    $events = $('#events');
+
+    function createSystemEvent(type, title, body) {
+      var eventDiv = $('.system-event-template', $events).clone();
+
+      eventDiv.removeClass('system-event-template').addClass('panel-' + type);
+      $('.panel-title', eventDiv).text(title);
+      var now = new Date();
+      $('.timeago', eventDiv).attr('datetime', now.toISOString()).text(now.toLocaleTimeString()).timeago();
+      $('.panel-body', eventDiv).text(body);
+
+      $events.prepend(eventDiv);
+     
+      $('.timeago', eventDiv).timeago();
+    }
+
     function pushHandler(data) {
-      var eventDiv = $('.event-template').clone();
+      var eventDiv = $('.event-template', $events).clone();
       eventDiv.attr('id', data.body.head_commit.id)
               .removeClass('event-template');
 
@@ -64,16 +81,25 @@
       $('.header-delivery', eventDiv).text(data.headers['X-Github-Delivery']);
       $('.header-sig', eventDiv).text(data.headers['X-Hub-Signature']);
 
-      $('#events').prepend(eventDiv);
+      $events.prepend(eventDiv);
 
       $('.timeago', eventDiv).timeago();
     }
 
+    createSystemEvent('info', 'Connecting...', 'Attempting to connect to the host: ' + defaultUrl);
     socket = connectSocket(nextUrl, pushHandler);
+
+    socket.on('disconnect', function () {
+      createSystemEvent('danger', 'Disconnected', 'The socket has disconnected from the host.');
+    }).on('connect', function () {
+      createSystemEvent('success', 'Connected', 'The socket has connected to the host.');
+    });
 
     $('#set-secret').click(function (event) {
       event.preventDefault();
-      setSecret($('#secret').val());
+      setSecret($('#secret').val(), function (secret) {
+        createSystemEvent('info', 'Secret Changed', secret);
+      });
     });
 
   });
