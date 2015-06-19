@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset='utf-8' />
+  <title>Push Broker</title>
+
+  <script src="jquery/jquery.min.js"></script>
+  <script src="bootstrap/js/bootstrap.min.js"></script>
+  <script src="socket.io.js"></script>
+  <script src="jquery.timeago.js"></script>
+
+  <link rel="stylesheet" href="bootstrap/css/bootstrap.min.css" />
+
+  <style>
+    .event-template {
+      display: none;
+    }
+
+    time {
+      font-style: italic;
+    }
+  </style>
+  
+  <script src="index.js"></script>
+</head>
+
+<body>
+  <a href="https://github.com/codesleuth/push-broker" target="_blank"><img style="position: absolute; top: 0; right: 0; border: 0;" src="https://camo.githubusercontent.com/a6677b08c955af8400f44c6298f40e7d19cc5b2d/68747470733a2f2f73332e616d617a6f6e6177732e636f6d2f6769746875622f726962626f6e732f666f726b6d655f72696768745f677261795f3664366436642e706e67" alt="Fork me on GitHub" data-canonical-src="https://s3.amazonaws.com/github/ribbons/forkme_right_gray_6d6d6d.png"></a>
+
+  <div class="container">
+    <div class="page-header">
+      <h1>Push Broker</h1>
+    </div>
+
+    <div class="row">
+      <div class="col-xs-12">
+
+        <div class="page-header">
+          <h1>Settings</h1>
+        </div>
+
+        <form role="form">
+
+          <div class="form-group">
+            <label for="secret">HMAC Secret</label>
+            <div class="input-group">
+              <input type="text" class="form-control" id="secret" placeholder="Your push secret">
+              <span class="input-group-btn">
+                <button id="set-secret" class="btn btn-default" type="submit">Set Secret!</button>
+              </span>
+            </div>
+          </div>
+
+        </form>
+
+      </div>
+    </div>
+
+
+    <div class="row">
+      <div class="col-xs-12">
+
+        <div class="page-header">
+          <h3>Events</h3>
+        </div>
+
+        <div class="panel-group" id="events">
+
+          <div class="panel panel-default event-template">
+            <div class="panel-heading">
+              <a class="collapsed text" role="button" data-toggle="collapse" data-parent="#events" href="#">
+                <h4 class="panel-title">
+                  <span class="event-id">PUSH Event Example 2</span>
+                </h4>
+              </a> <time class="timeago"></time>
+            </div>
+            <div class="panel-collapse collapse in">
+              <div class="panel-body">
+                <label>Headers</label>
+                <pre><strong>User-Agent: </strong><span class="header-user-agent">user-agent/1.0</span>
+<strong>X-GitHub-Delivery: </strong><span class="header-delivery">12345</span>
+<strong>X-Hub-Signature: </strong><span class="header-sig">827418723981238971283123</span></pre>
+                <label>Payload</label>
+                <pre class="payload">Some payload</pre>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+</body>
+
+</html>

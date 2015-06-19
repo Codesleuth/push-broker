@@ -1,0 +1,21 @@
+{
+  "name": "push-broker",
+  "version": "0.0.0",
+  "homepage": "https://github.com/Codesleuth/push-broker",
+  "authors": [
+    "David Wood <david.p.wood@gmail.com>"
+  ],
+  "description": "Relays GitHub web hooks to listening clients.",
+  "license": "MIT",
+  "ignore": [
+    "**/.*",
+    "node_modules",
+    "bower_components",
+    "test",
+    "tests"
+  ],
+  "dependencies": {
+    "bootstrap": "~3.3.5",
+    "sio-client": "~1.3.6"
+  }
+}
