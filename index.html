@@ -55,6 +55,27 @@
         </form>
 
       </div>
+      <div class="col-xs-6">
+        <h4>Monitor GitHub push events</h4>
+        <p>
+          This service allows you to use the aggregator at <a href="https://push-broker.herokuapp.com">push-broker.herokuapp.com</a> as a broker for tunneling push events into your organisation. To get started:
+        </p>
+        <ol>
+          <li>Enable webhooks for <a href="https://developer.github.com/webhooks/">your repository</a> or <a href="https://github.com/blog/1933-introducing-organization-webhooks">your organisation</a></li>
+          <li>Set your push URL to <code>https://push-broker.herokuapp.com/webhook</code></li>
+          <li>Set your secret, and set it to the same value here to begin testing</li>
+        </ol>
+        <p>
+          To forward pushes to Jenkins, use one of the following clients:
+        </p>
+        <ul>
+          <li><a href="https://github.com/Codesleuth/push-client-dotnet">github.com/Codesleuth/push-client-dotnet</a></li>
+          <li><a href="https://github.com/Codesleuth/push-client-js">github.com/Codesleuth/push-client-js</a></li>
+        </ul> 
+        <p>
+          
+        </p>
+      </div>
     </div>
 
 
