@@ -1,7 +1,7 @@
 {
-  "name": "push-proxy",
-  "version": "0.0.1",
-  "description": "Proxies GitHub push hooks to connected listeners.",
+  "name": "push-broker",
+  "version": "0.0.2",
+  "description": "Routes GitHub webhooks to connected listeners.",
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
@@ -9,14 +9,14 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/codesleuth/push-proxy.git"
+    "url": "https://github.com/codesleuth/push-broker.git"
   },
   "author": "David Wood <david.p.wood@gmail.com> (http://www.codesleuth.co.uk/)",
   "license": "ISC",
   "bugs": {
-    "url": "https://github.com/codesleuth/push-proxy/issues"
+    "url": "https://github.com/codesleuth/push-broker/issues"
   },
-  "homepage": "https://github.com/codesleuth/push-proxy",
+  "homepage": "https://github.com/codesleuth/push-broker",
   "engine": {
     "node": ">=0.10.20"
   },

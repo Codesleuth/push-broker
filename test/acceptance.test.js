@@ -48,7 +48,6 @@ describe('Acceptance Tests', function () {
 
   after(function (done) {
     server.close(function () {
-      log.console.enable();
       done();
     });
   });
@@ -420,7 +419,38 @@ describe('Acceptance Tests', function () {
 
   });
 
-  describe('Bad URL', function () {
+  describe('Root request', function () {
+
+    var response;
+    var responseBody;
+
+    before(function (done) {
+      request.get({
+        url: urlBase,
+        followRedirect: false
+      }, function (err, res, body) {
+        response = err || res;
+        responseBody = body;
+        done();
+      });
+
+    });
+
+    it('should respond with 302 Found', function () {
+      assert.strictEqual(response.statusCode, 302);
+    });
+
+    it('should respond with empty body', function () {
+      assert.strictEqual(responseBody, '');
+    });
+
+    it('should respond with location header to https://codesleuth.github.io/push-broker', function () {
+      assert.strictEqual(response.headers.location, 'https://codesleuth.github.io/push-broker');
+    });
+
+  });
+
+  describe('Bad Path', function () {
 
     var response;
     var responseBody;
