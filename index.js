@@ -10,16 +10,22 @@
   };
 
   var defaultUrl = 'https://push-broker.herokuapp.com';
-  var nextUrl = defaultUrl;
+  //var defaultUrl = 'http://localhost:3000';
   var socket;
 
   function connectSocket(url, pushHandler, disconnected) {
     var socket = io(url, { multiplex: true });
 
     socket.on('connect', function () {
-      log.info('Socket.IO connected.');
-      $('#service-uri').val(socket.io.uri);
-      log.info(socket);
+      log.info('Socket.IO connected to ' + socket.io.uri);
+    });
+
+    socket.on('connect_error', function (err) {
+      log.error('Socket.IO connect error: ' + err.message);
+    });
+
+    socket.on('connect_timeout', function () {
+      log.error('Socket.IO connect timeout.');
     });
 
     socket.on('PushEvent', function (data) {
@@ -31,8 +37,20 @@
       log.info('Socket.IO disconnected.');
     });
 
-    socket.on('reconnecting', function () {
-      log.info('Socket.IO reconnecting...');
+    socket.on('reconnect_attempt', function () {
+      log.info('Socket.IO reconnect attempt starting...');
+    });
+
+    socket.on('reconnecting', function (num) {
+      log.info('Socket.IO reconnecting (' + num + ') ...');
+    });
+
+    socket.on('reconnect_error', function (err) {
+      log.info('Socket.IO reconnect error: ' + err.message);
+    });
+
+    socket.on('reconnect_failed', function () {
+      log.info('Socket.IO failed to reconnect within ' + socket.io.reconnectionAttempts + ' attempts.');
     });
 
     socket.on('reconnect', function () {
@@ -87,7 +105,7 @@
     }
 
     createSystemEvent('info', 'Connecting...', 'Attempting to connect to the host: ' + defaultUrl);
-    socket = connectSocket(nextUrl, pushHandler);
+    socket = connectSocket(defaultUrl, pushHandler);
 
     socket.on('disconnect', function () {
       createSystemEvent('danger', 'Disconnected', 'The socket has disconnected from the host.');
