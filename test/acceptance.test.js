@@ -57,17 +57,20 @@ describe('Acceptance Tests', function () {
     var socket;
     var response;
     var responseBody;
+    var expectedSecret;
+    var actualSecret;
 
     before(function (done) {
-      var secret = random.string();
+      expectedSecret = random.string();
 
-      var hmac = crypto.createHmac('sha1', secret);
+      var hmac = crypto.createHmac('sha1', expectedSecret);
       var hash = hmac.update(examplePingEvent).digest('hex');
 
       socket = sioClient(urlBase, { forceNew: true });
 
       socket.on('connect', function () {
-        socket.emit('secret', secret, function () {
+        socket.emit('secret', expectedSecret, function (setSecret) {
+          actualSecret = setSecret;
           request.post({
             url: urlFull,
             body: examplePingEvent,
@@ -86,6 +89,10 @@ describe('Acceptance Tests', function () {
           });
         });
       });
+    });
+
+    it('should echo the secret when set', function () {
+      assert.strictEqual(actualSecret, expectedSecret);
     });
 
     it('should respond with 200 OK', function () {
